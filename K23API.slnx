@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="K23API.LogicLib/K23API.LogicLib.csproj" />
+  <Project Path="K23API/K23API.csproj" />
+</Solution>
