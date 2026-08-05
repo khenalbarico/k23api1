@@ -25,6 +25,7 @@ public static class ServiceRegistry1
 
         svc.AddSingleton<ISyncfusionConverters, SyncfusionConverters1>();
         svc.AddSingleton<IR2Objects, R2Objects1>();
+        svc.AddSingleton<R2PublicUrl1>();
 
         svc.AddDispatchableApi<IApiHealth, ApiHealth1>();
         svc.AddDispatchableApi<IDocumentManager, DocumentManager1>();

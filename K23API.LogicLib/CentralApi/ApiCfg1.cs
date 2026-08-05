@@ -14,6 +14,7 @@ internal class ApiCfg1 : ISyncfusionCfg, IFirebaseCfg, IR2ObjectCfg, IApiGateCfg
     public string R2AccessKeyId                { get; set; } = "";
     public string R2SecretAccessKey            { get; set; } = "";
     public string R2PrivateBucket              { get; set; } = "k23privatebucket1";
+    public string R2PublicBaseUrl              { get; set; } = "";
     public int R2PresignExpirySeconds          { get; set; } = 900;
     public string[] AllowedOrigins             { get; set; } = [];
 
