@@ -1,0 +1,4 @@
+{
+  "DevConnectionString": "UseDevelopmentStorage=true",
+  "ProdConnectionString": ""
+}
