@@ -1,4 +1,5 @@
 using K23API.LogicLib.Apps.DocumentManager;
+using K23API.LogicLib.Apps.TypingTest;
 using K23API.LogicLib.AuthVerifier;
 using K23API.LogicLib.CentralApi;
 using K23API.LogicLib.CloudFlareTools;
@@ -27,6 +28,7 @@ public static class ServiceRegistry1
 
         svc.AddDispatchableApi<IApiHealth, ApiHealth1>();
         svc.AddDispatchableApi<IDocumentManager, DocumentManager1>();
+        svc.AddDispatchableApi<ITypingTest, TypingTest1>();
     }
 
     private static void AddDispatchableApi<TApiInterface, TApiClass>(this IServiceCollection svc)

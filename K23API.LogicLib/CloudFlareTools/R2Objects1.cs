@@ -37,6 +37,29 @@ public class R2Objects1 : IR2Objects, IDisposable
 
     public string CreateDownloadUrl(string objectKey) => Presign(objectKey, HttpVerb.GET);
 
+    public async Task<IReadOnlyList<string>> ListKeysAsync(string keyPrefix, CancellationToken cancellationToken)
+    {
+        var keys = new List<string>();
+        string? continuationToken = null;
+
+        do
+        {
+            var page = await _r2.ListObjectsV2Async(new ListObjectsV2Request
+            {
+                BucketName        = _privateBucket,
+                Prefix            = keyPrefix,
+                ContinuationToken = continuationToken
+            }, cancellationToken);
+
+            foreach (var storedObject in page.S3Objects ?? []) keys.Add(storedObject.Key);
+
+            continuationToken = page.IsTruncated == true ? page.NextContinuationToken : null;
+        }
+        while (continuationToken is not null);
+
+        return keys;
+    }
+
     public async Task<long?> GetSizeAsync(string objectKey, CancellationToken cancellationToken)
     {
         try

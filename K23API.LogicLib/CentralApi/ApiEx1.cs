@@ -11,6 +11,7 @@ public class ApiEx1(string code, int statusCode, string message, int? retryAfter
     public static ApiEx1 OriginNotAllowed()         => new("origin_not_allowed", 403, "This origin is not allowed to call the API.");
     public static ApiEx1 Forbidden()                => new("forbidden", 403, "You do not have access to this file.");
     public static ApiEx1 EndpointNotFound()         => new("endpoint_not_found", 404, "The requested API endpoint does not exist.");
+    public static ApiEx1 NotFound(string message)   => new("not_found", 404, message);
     public static ApiEx1 Unexpected()               => new("internal_error", 500, "Something went wrong while handling the request.");
 
     public static ApiEx1 RateLimited(int retryAfterSeconds) =>

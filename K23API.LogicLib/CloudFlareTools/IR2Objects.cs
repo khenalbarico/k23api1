@@ -7,6 +7,8 @@ public interface IR2Objects
     string CreateUploadUrl(string objectKey);
     string CreateDownloadUrl(string objectKey);
 
+    Task<IReadOnlyList<string>> ListKeysAsync(string keyPrefix, CancellationToken cancellationToken);
+
     Task<long?> GetSizeAsync(string objectKey, CancellationToken cancellationToken);
     Task<byte[]> ReadAsync(string objectKey, CancellationToken cancellationToken);
     Task WriteAsync(string objectKey, byte[] content, string contentType, CancellationToken cancellationToken);
