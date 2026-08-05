@@ -1,15 +1,17 @@
+using K23API.LogicLib.ApiModels;
+using K23API.LogicLib.RateLimiting;
 using Microsoft.Extensions.Logging;
 
 namespace K23API.LogicLib.CentralApi;
 
 public class ApiDispatcher1(
-    IEnumerable<IApiEndpoint> endpoints,
+    ApiClassRegistry1 apiClassRegistry,
+    ApiMethodInvoker1 apiMethodInvoker,
     ApiGate1 apiGate,
+    IApiRateLimiter rateLimiter,
     ILogger<ApiDispatcher1> logger)
 {
-    private readonly IReadOnlyDictionary<string, IApiEndpoint> _endpointsByName = endpoints.ToDictionary(
-        endpoint => EndpointKey(endpoint.ApiClassName, endpoint.ApiMethodName),
-        StringComparer.OrdinalIgnoreCase);
+    private const string UnknownCallerScope = "anonymous-unknown";
 
     public async Task<ApiResponse1> DispatchAsync(ApiRequest1 request, CancellationToken cancellationToken)
     {
@@ -19,20 +21,24 @@ public class ApiDispatcher1(
         {
             apiGate.EnsureOriginAllowed(request.Origin);
 
-            var endpoint = FindEndpoint(request);
-            var caller   = endpoint.RequiresAuth
+            var apiMethod = apiClassRegistry.Find(request.ApiClassName, request.ApiMethodName)
+                            ?? throw ApiEx1.EndpointNotFound();
+
+            var caller = apiMethod.RequiresAuth
                 ? await apiGate.VerifyCallerAsync(request.AuthorizationHeader, cancellationToken)
                 : null;
 
+            await EnsureWithinRateLimitAsync(apiMethod, caller, request, cancellationToken);
+
             var call = new ApiCall1
             {
-                ApiClassName  = endpoint.ApiClassName,
-                ApiMethodName = endpoint.ApiMethodName,
+                ApiClassName  = apiMethod.ApiClassName,
+                ApiMethodName = apiMethod.ApiMethodName,
                 PayloadJson   = request.PayloadJson,
                 Caller        = caller
             };
 
-            var result = await endpoint.HandleAsync(call, cancellationToken);
+            var result = await apiMethodInvoker.InvokeAsync(apiMethod, call, cancellationToken);
             return new ApiResponse1 { StatusCode = 200, Body = result, AllowedOrigin = allowedOrigin };
         }
         catch (ApiEx1 apiEx)
@@ -52,10 +58,24 @@ public class ApiDispatcher1(
         }
     }
 
-    private IApiEndpoint FindEndpoint(ApiRequest1 request) =>
-        _endpointsByName.TryGetValue(EndpointKey(request.ApiClassName, request.ApiMethodName), out var endpoint)
-            ? endpoint
-            : throw ApiEx1.EndpointNotFound();
+    private async Task EnsureWithinRateLimitAsync(
+        ApiMethodDescriptor1 apiMethod, AuthReq1? caller, ApiRequest1 request, CancellationToken cancellationToken)
+    {
+        var consumed = await rateLimiter.ConsumeAsync(
+            ScopeKeyFor(caller, request),
+            $"{apiMethod.ApiClassName}-{apiMethod.ApiMethodName}",
+            apiMethod.RateLimit,
+            cancellationToken);
+
+        if (!consumed.IsAllowed) throw ApiEx1.RateLimited(consumed.RetryAfterSeconds);
+    }
+
+    private static string ScopeKeyFor(AuthReq1? caller, ApiRequest1 request)
+    {
+        if (caller is not null && !string.IsNullOrWhiteSpace(caller.Uid)) return $"uid-{caller.Uid}";
+
+        return string.IsNullOrWhiteSpace(request.ClientIp) ? UnknownCallerScope : $"ip-{request.ClientIp}";
+    }
 
     private ApiResponse1 Failure(ApiEx1 apiEx, ApiRequest1 request, string? allowedOrigin)
     {
@@ -64,11 +84,10 @@ public class ApiDispatcher1(
 
         return new ApiResponse1
         {
-            StatusCode    = apiEx.StatusCode,
-            Body          = ApiError1.From(apiEx, request.RequestId),
-            AllowedOrigin = allowedOrigin
+            StatusCode        = apiEx.StatusCode,
+            Body              = ApiError1.From(apiEx, request.RequestId),
+            AllowedOrigin     = allowedOrigin,
+            RetryAfterSeconds = apiEx.RetryAfterSeconds
         };
     }
-
-    private static string EndpointKey(string apiClassName, string apiMethodName) => $"{apiClassName}/{apiMethodName}";
 }

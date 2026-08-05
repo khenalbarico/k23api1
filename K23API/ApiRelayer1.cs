@@ -28,13 +28,41 @@ public class ApiRelayer1(ApiDispatcher1 apiDispatcher, ApiGate1 apiGate)
             PayloadJson         = await ReadPayloadAsync(req),
             Origin              = origin,
             AuthorizationHeader = req.Headers.Authorization.FirstOrDefault(),
+            ClientIp            = ResolveClientIp(req),
             RequestId           = req.HttpContext.TraceIdentifier
         };
 
         var apiResponse = await apiDispatcher.DispatchAsync(apiRequest, cancellationToken);
         ApplyCorsHeaders(req, apiResponse.AllowedOrigin);
 
+        if (apiResponse.RetryAfterSeconds is { } retryAfterSeconds)
+            req.HttpContext.Response.Headers.RetryAfter = retryAfterSeconds.ToString();
+
         return new ObjectResult(apiResponse.Body) { StatusCode = apiResponse.StatusCode };
+    }
+
+    private static string? ResolveClientIp(HttpRequest req)
+    {
+        return ForwardedClientIp(req) ?? req.HttpContext.Connection.RemoteIpAddress?.ToString();
+    }
+
+    private static string? ForwardedClientIp(HttpRequest req)
+    {
+        var forwardedFor = req.Headers["X-Original-For"].FirstOrDefault()
+                           ?? req.Headers["X-Forwarded-For"].FirstOrDefault();
+
+        if (string.IsNullOrWhiteSpace(forwardedFor)) return null;
+
+        var appendedByPlatform = forwardedFor.Split(',')[^1].Trim();
+        return string.IsNullOrWhiteSpace(appendedByPlatform) ? null : StripPort(appendedByPlatform);
+    }
+
+    private static string StripPort(string address)
+    {
+        if (address.StartsWith('[')) return address[..(address.IndexOf(']') + 1)];
+
+        var lastColon = address.LastIndexOf(':');
+        return lastColon > 0 && address.IndexOf(':') == lastColon ? address[..lastColon] : address;
     }
 
     private IActionResult Preflight(HttpRequest req, string? origin)
@@ -55,6 +83,7 @@ public class ApiRelayer1(ApiDispatcher1 apiDispatcher, ApiGate1 apiGate)
         headers.AccessControlAllowHeaders = "Authorization, Content-Type";
         headers.AccessControlAllowMethods = "GET, POST, OPTIONS";
         headers.AccessControlMaxAge       = "3600";
+        headers.AccessControlExposeHeaders = "Retry-After";
         headers.Vary                      = "Origin";
     }
 

@@ -3,6 +3,7 @@ using System.Reflection;
 using K23API.LogicLib.AuthVerifier;
 using K23API.LogicLib.CloudFlareTools;
 using K23API.LogicLib.SyncfusionTools;
+using K23API.LogicLib.TableStorageTools;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace K23API.LogicLib.CentralApi;
@@ -17,6 +18,7 @@ public static class ApiCfgLoader1
         svc.AddSingleton<IFirebaseCfg>(apiCfg);
         svc.AddSingleton<IR2ObjectCfg>(apiCfg);
         svc.AddSingleton<IApiGateCfg>(apiCfg);
+        svc.AddSingleton<ITableStorageCfg>(apiCfg);
     }
 
     private static ApiCfg1 ReadFromEnvironment()
